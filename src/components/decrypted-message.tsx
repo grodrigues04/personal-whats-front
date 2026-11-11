@@ -52,7 +52,7 @@ export function DecryptedMessage({ payload }: { payload: DecryptedPayload }) {
               </div>
               <button
                 type="button"
-                className="button-secondary"
+                className="button-secondary w-full sm:w-auto"
                 onClick={() => downloadAttachment(attachment)}
               >
                 Baixar

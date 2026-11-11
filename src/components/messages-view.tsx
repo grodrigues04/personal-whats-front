@@ -84,7 +84,7 @@ export function MessagesView({ view, title }: MessagesViewProps) {
             {lastUpdate && ` · última atualização ${formatDate(lastUpdate)}`}
           </p>
         </div>
-        <div className="flex flex-wrap items-end gap-2">
+        <div className="grid w-full grid-cols-2 items-end gap-2 sm:flex sm:w-auto sm:flex-wrap">
           <label className="flex flex-col gap-1 text-xs text-zinc-500">
             Status
             <select
@@ -121,7 +121,11 @@ export function MessagesView({ view, title }: MessagesViewProps) {
               ))}
             </select>
           </label>
-          <button type="button" className="button-secondary" onClick={() => setRefreshCount((count) => count + 1)}>
+          <button
+            type="button"
+            className="button-secondary col-span-2"
+            onClick={() => setRefreshCount((count) => count + 1)}
+          >
             Atualizar
           </button>
         </div>
@@ -179,21 +183,25 @@ function MessageCard({ message }: { message: MessageSummary }) {
   const decryption = decryptedMessages[message.id];
 
   return (
-    <li className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+    <li className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-3 sm:p-4 dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={message.status} />
           <span className="font-mono text-sm">{message.source}</span>
-          <span className="font-mono text-xs text-zinc-400">{message.id}</span>
+          <span className="break-all font-mono text-xs text-zinc-400">{message.id}</span>
         </div>
         {decryption && decryption.state !== "loading" ? (
-          <button type="button" className="button-secondary" onClick={() => hideMessage(message.id)}>
+          <button
+            type="button"
+            className="button-secondary w-full sm:w-auto"
+            onClick={() => hideMessage(message.id)}
+          >
             Ocultar
           </button>
         ) : (
           <button
             type="button"
-            className="button-secondary"
+            className="button-secondary w-full sm:w-auto"
             disabled={!isUnlocked || decryption?.state === "loading"}
             title={isUnlocked ? undefined : "Informe a senha de criptografia no topo da página"}
             onClick={() => decryptMessage(message.id)}

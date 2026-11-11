@@ -52,17 +52,17 @@ export function UnlockPanel() {
   return (
     <section className="rounded-lg border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
       <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
-        <label className="flex min-w-64 flex-1 flex-col gap-1 text-sm">
+        <label className="flex w-full flex-col gap-1 text-sm sm:w-auto sm:min-w-64 sm:flex-1">
           Senha de criptografia
           <input
             ref={passwordInput}
             type="password"
             autoComplete="off"
             className="input"
-            placeholder="Usada só no navegador, nunca enviada ao servidor"
+            placeholder="Usada só no navegador"
           />
         </label>
-        <button type="submit" disabled={isChecking} className="button-primary">
+        <button type="submit" disabled={isChecking} className="button-primary w-full sm:w-auto">
           {isChecking ? "Verificando…" : "Liberar descriptografia"}
         </button>
       </form>
