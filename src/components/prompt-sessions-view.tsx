@@ -4,9 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 
 import { fetchJson } from "@/lib/api-client";
 import { formatDate } from "@/lib/format";
+import { countDaysLeft, describeRetention } from "@/lib/prompt-sessions/retention";
 import type {
   PromptSessionPage,
   PromptSessionSummary,
+  PromptStatus,
   PromptSummary,
 } from "@/lib/prompt-sessions/statuses";
 
@@ -122,7 +124,7 @@ export function PromptSessionsView() {
           Nenhuma sessão de prompts.
         </p>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-5">
           {sessionPage?.sessions.map((session) => (
             <SessionCard key={session.id} session={session} />
           ))}
@@ -156,6 +158,15 @@ export function PromptSessionsView() {
   );
 }
 
+const FINAL_STATUS_SUMMARY: { status: PromptStatus; singular: string; plural: string }[] = [
+  { status: "done", singular: "concluído", plural: "concluídos" },
+  { status: "failed", singular: "falhou", plural: "falharam" },
+  { status: "rejected", singular: "rejeitado", plural: "rejeitados" },
+  { status: "cancelled", singular: "cancelado", plural: "cancelados" },
+];
+// Few days left: the deletion notice turns amber
+const RETENTION_WARNING_DAYS = 2;
+
 function SessionCard({ session }: { session: PromptSessionSummary }) {
   const {
     isUnlocked: isScopeUnlocked,
@@ -165,115 +176,173 @@ function SessionCard({ session }: { session: PromptSessionSummary }) {
   } = useDecryption();
   const isUnlocked = isScopeUnlocked("prompts");
   const decryption = decryptedSessions[session.id];
+  const daysLeft = countDaysLeft(session.records_expire_at);
+  const statusSummary = FINAL_STATUS_SUMMARY.map(({ status, singular, plural }) => {
+    const count = session.prompts.filter((prompt) => prompt.status === status).length;
+    return count > 0 ? `${count} ${count === 1 ? singular : plural}` : null;
+  }).filter(Boolean);
 
   return (
-    <li className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-3 sm:p-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <PromptSessionStatusBadge status={session.status} />
-          <span className="text-sm font-medium">{session.chat_name}</span>
-          <span className="break-all font-mono text-xs text-zinc-400">{session.branch}</span>
+    <li className="overflow-hidden rounded-xl border border-zinc-300 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="flex flex-col gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-3 sm:px-4 dark:border-zinc-800 dark:bg-zinc-800/40">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base font-semibold">Sessão de {formatDate(session.started_at)}</h2>
+              <PromptSessionStatusBadge status={session.status} />
+            </div>
+            <div className="flex flex-wrap items-center gap-x-2 text-xs text-zinc-500">
+              <span>{session.chat_name}</span>
+              <span>·</span>
+              <span className="break-all font-mono">{session.branch}</span>
+            </div>
+          </div>
+          {decryption && decryption.state !== "loading" ? (
+            <button
+              type="button"
+              className="button-secondary w-full sm:w-auto"
+              onClick={() => hideSession(session.id)}
+            >
+              Ocultar
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="button-secondary w-full sm:w-auto"
+              disabled={!isUnlocked || decryption?.state === "loading" || session.prompts.length === 0}
+              title={isUnlocked ? undefined : "Informe a senha dos prompts no topo da página"}
+              onClick={() => decryptSession(session.id)}
+            >
+              {decryption?.state === "loading" ? "Descriptografando…" : "Descriptografar"}
+            </button>
+          )}
         </div>
-        {decryption && decryption.state !== "loading" ? (
-          <button
-            type="button"
-            className="button-secondary w-full sm:w-auto"
-            onClick={() => hideSession(session.id)}
+        <div className="flex flex-wrap gap-1.5 text-xs">
+          <Chip>
+            {session.prompts.length} prompt{session.prompts.length === 1 ? "" : "s"}
+            {session.prompt_limit !== null && ` de ${session.prompt_limit}`}
+          </Chip>
+          {statusSummary.length > 0 && <Chip>{statusSummary.join(" · ")}</Chip>}
+          <Chip
+            tone={daysLeft === 0 ? "muted" : daysLeft <= RETENTION_WARNING_DAYS ? "warning" : "default"}
+            title={`Dia ${formatDate(session.records_expire_at)}. A sessão e os prompts ficam; somem o terminal e os envios pelo frontend.`}
           >
-            Ocultar
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="button-secondary w-full sm:w-auto"
-            disabled={!isUnlocked || decryption?.state === "loading" || session.prompts.length === 0}
-            title={isUnlocked ? undefined : "Informe a senha dos prompts no topo da página"}
-            onClick={() => decryptSession(session.id)}
-          >
-            {decryption?.state === "loading" ? "Descriptografando…" : "Descriptografar"}
-          </button>
-        )}
+            {describeRetention(session.records_expire_at)}
+          </Chip>
+        </div>
       </div>
 
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
-        <DateField label="Início" value={session.started_at} />
-        <DateField label="Aceita prompts até" value={session.ends_at} />
-        <DateField label="Finalizada" value={session.finished_at} />
-        <Field label="Duração" value={`${session.duration_minutes} min`} />
-        <Field
-          label="Limite"
-          value={session.prompt_limit === null ? "INFINITO" : String(session.prompt_limit)}
-        />
-        <Field label="Prompts" value={String(session.prompts.length)} />
-        <div className="col-span-2">
-          <dt className="text-zinc-500">Pull request</dt>
-          <dd className="break-all">
-            {session.pull_request_url ? (
-              <a
-                href={session.pull_request_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-emerald-700 underline dark:text-emerald-400"
-              >
-                {session.pull_request_url}
-              </a>
-            ) : (
-              "—"
-            )}
-          </dd>
+      <div className="flex flex-col gap-3 px-3 py-3 sm:px-4">
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
+          <DateField label="Início" value={session.started_at} />
+          <DateField label="Aceita prompts até" value={session.ends_at} />
+          <DateField label="Finalizada" value={session.finished_at} />
+          <Field label="Duração" value={`${session.duration_minutes} min`} />
+          <div className="col-span-2 sm:col-span-4">
+            <dt className="text-zinc-500">Pull request</dt>
+            <dd className="break-all">
+              {session.pull_request_url ? (
+                <a
+                  href={session.pull_request_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-emerald-700 underline dark:text-emerald-400"
+                >
+                  {session.pull_request_url}
+                </a>
+              ) : (
+                "—"
+              )}
+            </dd>
+          </div>
+        </dl>
+
+        {session.end_reason && (
+          <p className="whitespace-pre-wrap break-words rounded-md bg-zinc-100 px-3 py-2 text-xs dark:bg-zinc-800">
+            <span className="text-zinc-500">Motivo do fim: </span>
+            {session.end_reason}
+          </p>
+        )}
+
+        {decryption?.state === "error" && (
+          <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+            {decryption.error}
+          </p>
+        )}
+
+        <div className="flex flex-col gap-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            Enviado nesta sessão
+          </h3>
+          {session.prompts.length === 0 ? (
+            <p className="text-sm text-zinc-500">Nenhum prompt.</p>
+          ) : (
+            <ol className="flex flex-col gap-2 border-l-2 border-zinc-200 pl-3 dark:border-zinc-700">
+              {session.prompts.map((prompt, index) => (
+                <PromptItem
+                  key={prompt.id}
+                  number={index + 1}
+                  sessionId={session.id}
+                  prompt={prompt}
+                  decryption={
+                    decryption?.state === "decrypted" ? decryption.prompts[prompt.id] : undefined
+                  }
+                />
+              ))}
+            </ol>
+          )}
         </div>
-      </dl>
-
-      {session.end_reason && (
-        <p className="whitespace-pre-wrap break-words rounded-md bg-zinc-100 px-3 py-2 text-xs dark:bg-zinc-800">
-          <span className="text-zinc-500">Motivo do fim: </span>
-          {session.end_reason}
-        </p>
-      )}
-
-      {decryption?.state === "error" && (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
-          {decryption.error}
-        </p>
-      )}
-
-      {session.prompts.length > 0 && (
-        <ol className="flex flex-col gap-2">
-          {session.prompts.map((prompt) => (
-            <PromptItem
-              key={prompt.id}
-              sessionId={session.id}
-              prompt={prompt}
-              decryption={
-                decryption?.state === "decrypted" ? decryption.prompts[prompt.id] : undefined
-              }
-            />
-          ))}
-        </ol>
-      )}
+      </div>
     </li>
   );
 }
 
+function Chip({
+  children,
+  tone = "default",
+  title,
+}: {
+  children: React.ReactNode;
+  tone?: "default" | "warning" | "muted";
+  title?: string;
+}) {
+  const colors = {
+    default: "border-zinc-200 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300",
+    warning: "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
+    muted: "border-zinc-200 bg-zinc-100 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800",
+  };
+  return (
+    <span title={title} className={`rounded-full border px-2 py-0.5 ${colors[tone]}`}>
+      {children}
+    </span>
+  );
+}
+
 function PromptItem({
+  number,
   sessionId,
   prompt,
   decryption,
 }: {
+  number: number;
   sessionId: string;
   prompt: PromptSummary;
   decryption: PromptDecryptionResult | undefined;
 }) {
   const { isUnlocked } = useDecryption();
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+  const senderName = decryption?.state === "decrypted" ? decryption.content.sender_name : null;
   return (
-    <li className="flex flex-col gap-2 rounded-md border border-zinc-200 px-3 py-2 dark:border-zinc-800">
+    <li className="relative flex flex-col gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
+      <span className="absolute -left-[1.4rem] top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-200 text-[10px] font-semibold text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">
+        {number}
+      </span>
       <div className="flex flex-wrap items-center gap-2">
         <PromptStatusBadge status={prompt.status} />
-        {prompt.source === "frontend" && (
-          <span className="text-xs text-zinc-500">pelo frontend</span>
-        )}
-        <span className="break-all font-mono text-xs text-zinc-400">{prompt.id}</span>
+        {senderName && <span className="text-sm font-medium">{senderName}</span>}
+        <span className="text-xs text-zinc-500">
+          {prompt.source === "frontend" ? "pelo frontend" : "pelo grupo"}
+        </span>
         {prompt.status !== "queued" && (
           <button
             type="button"

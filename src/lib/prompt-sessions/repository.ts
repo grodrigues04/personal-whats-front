@@ -33,6 +33,8 @@ const SETTINGS_COLLECTION = "settings";
 const PROMPT_KEY_CHECK_ID = "prompt_key_check";
 // Chunks per request of the terminal: the browser asks again for the next ones
 const TERMINAL_CHUNKS_PER_REQUEST = 50;
+// Same as prompt_automator: sessions saved before records_expire_at existed
+const RECORDS_LIFETIME_MILLISECONDS = 10 * 24 * 60 * 60 * 1000;
 
 type PromptDocument = {
   id: string;
@@ -59,10 +61,18 @@ type PromptSessionDocument = {
   end_reason: string | null;
   branch: string;
   pull_request_url: string | null;
+  records_expire_at?: Date;
   prompts: PromptDocument[];
   created_at: Date;
   updated_at: Date;
 };
+
+function findRecordsExpiration(document: Pick<PromptSessionDocument, "records_expire_at" | "started_at">): Date {
+  return (
+    document.records_expire_at ??
+    new Date(document.started_at.getTime() + RECORDS_LIFETIME_MILLISECONDS)
+  );
+}
 
 function toIsoString(date: Date | null | undefined): string | null {
   return date ? date.toISOString() : null;
@@ -95,6 +105,7 @@ export async function listPromptSessions(page: number): Promise<PromptSessionPag
       end_reason: document.end_reason ?? null,
       branch: document.branch,
       pull_request_url: document.pull_request_url ?? null,
+      records_expire_at: findRecordsExpiration(document).toISOString(),
       prompts: (document.prompts ?? []).map((prompt) => ({
         id: prompt.id,
         status: prompt.status,
@@ -162,6 +173,7 @@ export async function getPromptKeyCheck(): Promise<EncryptedData | null> {
 
 export type PromptSessionState = {
   status: PromptSessionStatus;
+  recordsExpireAt: Date;
   prompts: { id: string; status: PromptStatus }[];
 };
 
@@ -173,12 +185,24 @@ export async function getPromptSessionState(sessionId: string): Promise<PromptSe
   const database = await getDatabase();
   const document = await database
     .collection<PromptSessionDocument>(PROMPT_SESSIONS_COLLECTION)
-    .findOne({ _id: new ObjectId(sessionId) }, { projection: { status: 1, "prompts.id": 1, "prompts.status": 1 } });
+    .findOne(
+      { _id: new ObjectId(sessionId) },
+      {
+        projection: {
+          status: 1,
+          started_at: 1,
+          records_expire_at: 1,
+          "prompts.id": 1,
+          "prompts.status": 1,
+        },
+      },
+    );
   if (!document) {
     return null;
   }
   return {
     status: document.status,
+    recordsExpireAt: findRecordsExpiration(document),
     prompts: (document.prompts ?? []).map((prompt) => ({ id: prompt.id, status: prompt.status })),
   };
 }
@@ -193,6 +217,7 @@ type PromptInputDocument = {
   status: PromptInputStatus;
   refusal_reason?: string | null;
   created_at: Date;
+  expires_at: Date; // TTL: deleted with the terminal of its session
   processed_at?: Date | null;
   encryption_version: number;
   nonce: Binary;
@@ -212,6 +237,7 @@ export async function insertPromptInput(input: {
   promptId: string | null;
   username: string;
   senderName: string;
+  expiresAt: Date;
   encryptionVersion: number;
   nonce: Buffer;
   ciphertext: Buffer;
@@ -226,6 +252,7 @@ export async function insertPromptInput(input: {
     status: "pending",
     refusal_reason: null,
     created_at: new Date(),
+    expires_at: input.expiresAt,
     processed_at: null,
     encryption_version: input.encryptionVersion,
     nonce: new Binary(input.nonce),

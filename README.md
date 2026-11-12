@@ -22,7 +22,10 @@ descriptografá-las **no navegador**.
     perguntas com o formulário para **responder**.
   - **Terminal** (`>_ Terminal` em cada prompt): cópia visual do terminal do Claude Code, com o
     que ele escreveu, cada ferramenta chamada (clique para ver a entrada) e a saída dela. Só
-    mostra: nada do que está ali é executado. Some 10 dias depois (TTL no `prompt_terminal`).
+    mostra: nada do que está ali é executado.
+  - Cada sessão é um bloco com título (data de início), status, total de prompts, resumo dos
+    resultados e **quantos dias faltam para apagar** o terminal e os envios pelo frontend dela
+    (10 dias depois do início, `records_expire_at`). A sessão e os prompts não são apagados.
 - **Escrita**: o painel nunca altera nem apaga mensagens nem sessões. A única escrita é a
   inserção de prompts e respostas em `prompt_inputs`, já criptografados no navegador.
 
@@ -122,7 +125,7 @@ você clica em **Descriptografar**. A listagem nunca devolve `nonce` nem `cipher
 3. O prompt_automator lê os pendentes a cada 5 segundos, aplica as regras do `/prompt` (repetido,
    limite...) e marca `accepted` ou `refused` com o motivo, que aparece em "Seus envios". Aceito,
    o grupo recebe `Maria adicionou um prompt à fila pelo frontend. Fila: 2/3` (e o limite, quando
-   a sessão tem).
+   a sessão tem); recusado, o grupo recebe o motivo.
 4. Respostas valem como as do grupo: a primeira que chegar (grupo ou front) é usada.
 
 O código fica em `src/lib/encryption/decryption.ts` (o JSON dos prompts em

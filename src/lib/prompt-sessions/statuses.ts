@@ -77,6 +77,7 @@ export type PromptSessionSummary = {
   end_reason: string | null;
   branch: string;
   pull_request_url: string | null;
+  records_expire_at: string; // when its terminal and the prompts sent from here are deleted
   prompts: PromptSummary[];
 };
 
