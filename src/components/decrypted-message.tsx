@@ -29,7 +29,12 @@ export function DecryptedMessage({ payload }: { payload: DecryptedPayload }) {
         <span className="text-zinc-500">Destinatário: </span>
         <span className="font-mono">{payload.recipient ?? "contato padrão"}</span>
       </div>
-      {payload.text ? (
+      {payload.reaction ? (
+        <p>
+          <span className="text-zinc-500">Reação: </span>
+          {payload.reaction}
+        </p>
+      ) : payload.text ? (
         <p className="whitespace-pre-wrap break-words">{payload.text}</p>
       ) : (
         <p className="italic text-zinc-500">Sem texto</p>

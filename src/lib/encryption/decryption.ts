@@ -38,6 +38,7 @@ export type DecryptedPayload = {
   recipient: string | null; // null means the default recipient configured in personalWhats
   attachments: DecryptedAttachment[];
   quoted: QuotedMessage | null;
+  reaction: string | null; // emoji reaction to `quoted`, sent instead of a message
 };
 
 /** Wrong password or tampered data: AES-GCM could not authenticate the ciphertext. */
@@ -140,7 +141,7 @@ export function parsePayload(plaintext: Uint8Array): DecryptedPayload {
   if (typeof payload !== "object" || payload === null) {
     throw new InvalidPayloadError("O conteúdo descriptografado não é um objeto");
   }
-  const { text, recipient, attachments, quoted } = payload as Record<string, unknown>;
+  const { text, recipient, attachments, quoted, reaction } = payload as Record<string, unknown>;
   if (!Array.isArray(attachments ?? [])) {
     throw new InvalidPayloadError("Os anexos descriptografados são inválidos");
   }
@@ -149,6 +150,7 @@ export function parsePayload(plaintext: Uint8Array): DecryptedPayload {
     recipient: typeof recipient === "string" ? recipient : null,
     attachments: ((attachments as unknown[] | undefined) ?? []).map(parseAttachment),
     quoted: parseQuoted(quoted),
+    reaction: typeof reaction === "string" ? reaction : null,
   };
 }
 
