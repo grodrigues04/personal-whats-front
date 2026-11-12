@@ -24,10 +24,20 @@ export type DecryptedAttachment = {
   caption: string | null;
 };
 
+/** Received WhatsApp message that the sent one replies to ("Responder"). */
+export type QuotedMessage = {
+  chat_jid: string;
+  message_id: string;
+  participant: string | null;
+  from_me: boolean;
+  text: string | null;
+};
+
 export type DecryptedPayload = {
   text: string | null;
   recipient: string | null; // null means the default recipient configured in personalWhats
   attachments: DecryptedAttachment[];
+  quoted: QuotedMessage | null;
 };
 
 /** Wrong password or tampered data: AES-GCM could not authenticate the ciphertext. */
@@ -130,7 +140,7 @@ export function parsePayload(plaintext: Uint8Array): DecryptedPayload {
   if (typeof payload !== "object" || payload === null) {
     throw new InvalidPayloadError("O conteúdo descriptografado não é um objeto");
   }
-  const { text, recipient, attachments } = payload as Record<string, unknown>;
+  const { text, recipient, attachments, quoted } = payload as Record<string, unknown>;
   if (!Array.isArray(attachments ?? [])) {
     throw new InvalidPayloadError("Os anexos descriptografados são inválidos");
   }
@@ -138,6 +148,24 @@ export function parsePayload(plaintext: Uint8Array): DecryptedPayload {
     text: typeof text === "string" ? text : null,
     recipient: typeof recipient === "string" ? recipient : null,
     attachments: ((attachments as unknown[] | undefined) ?? []).map(parseAttachment),
+    quoted: parseQuoted(quoted),
+  };
+}
+
+function parseQuoted(quoted: unknown): QuotedMessage | null {
+  if (quoted === null || quoted === undefined) {
+    return null;
+  }
+  const { chat_jid, message_id, participant, from_me, text } = quoted as Record<string, unknown>;
+  if (typeof chat_jid !== "string" || typeof message_id !== "string") {
+    throw new InvalidPayloadError("A mensagem citada descriptografada é inválida");
+  }
+  return {
+    chat_jid,
+    message_id,
+    participant: typeof participant === "string" ? participant : null,
+    from_me: from_me === true,
+    text: typeof text === "string" ? text : null,
   };
 }
 

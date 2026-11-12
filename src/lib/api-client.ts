@@ -25,3 +25,7 @@ export async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T
 }
 
 export type EncryptedResponse = { nonce: string; ciphertext: string; encryption_version?: number };
+
+export type EncryptedPromptsResponse = {
+  prompts: { id: string; nonce: string; ciphertext: string; encryption_version?: number }[];
+};

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const LINKS = [
   { href: "/", label: "Fila" },
   { href: "/historico", label: "Histórico" },
+  { href: "/prompts", label: "Prompts" },
 ];
 
 export function NavigationLinks() {

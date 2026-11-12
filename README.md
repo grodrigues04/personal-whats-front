@@ -9,7 +9,13 @@ descriptografá-las **no navegador**.
   pelo índice TTL).
 - Mais novas primeiro, 20 por página, filtro por origem (`source`) e status, datas no fuso
   `America/Sao_Paulo`, tentativas e erro. Atualiza sozinho a cada 15 segundos.
-- **Só leitura**: o painel nunca insere, altera nem apaga mensagens.
+- **Prompts**: sessões da coleção `prompt_sessions`, gravadas pelo `prompt_automator` a cada
+  `/liberar prompt` no WhatsApp. Mostra status da sessão, grupo, início e fim, duração, limite
+  ("INFINITO" quando não tem), quantidade de prompts, branch, link do PR e motivo do fim, e cada
+  prompt com status e horários. Mais novas primeiro (`started_at`), 20 por página, atualiza a
+  cada 15 segundos. Quem enviou, o texto do prompt e o resultado ficam criptografados e só
+  aparecem depois de **Descriptografar** na sessão.
+- **Só leitura**: o painel nunca insere, altera nem apaga mensagens nem sessões de prompts.
 
 Next.js (App Router, TypeScript, Tailwind) com o driver oficial do MongoDB, usado só no servidor.
 
@@ -57,9 +63,10 @@ Trocar o `AUTH_SECRET` derruba todas as sessões abertas.
 
 ### Descriptografia
 
-As mensagens ficam criptografadas no MongoDB (AES-256-GCM, especificação no README da
-interface). O servidor só entrega `nonce` e `ciphertext` em base64 para quem está logado, e o
-conteúdo de uma mensagem só é buscado quando você clica em **Descriptografar**.
+As mensagens e os prompts ficam criptografados no MongoDB (AES-256-GCM, especificação no
+README da interface, mesma chave). O servidor só entrega `nonce` e `ciphertext` em base64 para
+quem está logado, e o conteúdo de uma mensagem (ou dos prompts de uma sessão) só é buscado quando
+você clica em **Descriptografar**. A listagem nunca devolve `nonce` nem `ciphertext`.
 
 1. Você digita a senha de criptografia no topo da página.
 2. O navegador deriva a chave com WebCrypto (PBKDF2-HMAC-SHA256, 600.000 iterações) e confere a
@@ -69,10 +76,13 @@ conteúdo de uma mensagem só é buscado quando você clica em **Descriptografar
    enviada ao servidor nem gravada (nada de localStorage, sessionStorage, cookie ou IndexedDB),
    e o campo é limpo logo depois.
 4. Cada mensagem descriptografada mostra texto, destinatário ("contato padrão" quando não tem) e
-   anexos com botão para baixar.
+   anexos com botão para baixar. Cada sessão de prompts descriptografada mostra, em cada prompt,
+   quem enviou, o texto e o resultado (o que foi implementado, ou por que foi cancelado,
+   rejeitado ou falhou).
 5. **Bloquear** (ou recarregar a página) descarta a chave e tudo que foi descriptografado.
 
-O código fica em `src/lib/encryption/decryption.ts` e é testado contra os vetores da interface
+O código fica em `src/lib/encryption/decryption.ts` (o JSON dos prompts em
+`src/lib/encryption/prompt-content.ts`) e é testado contra os vetores da interface
 (`tests/vectors/v1.json`, cópia de `interface-personal-whats/tests/vectors/v1.json`). Se a
 criptografia mudar na interface, copie os vetores de novo e rode os testes.
 
@@ -88,7 +98,7 @@ Para testar sem mexer nos dados reais, use `MONGODB_DATABASE=personal_whats_dev`
 mensagens de teste com a interface Python.
 
 ```bash
-npm test            # vitest: vetores de criptografia, hash de senha e sessão
+npm test            # vitest: vetores de criptografia, conteúdo dos prompts, hash de senha e sessão
 npm run lint
 npm run typecheck   # depois de um build ou do dev, que geram os tipos das rotas
 npm run build
@@ -100,6 +110,7 @@ npm run build
 2. Cadastre as variáveis de ambiente da tabela acima em *Settings → Environment Variables*.
 3. No MongoDB Atlas, em *Network Access*, libere `0.0.0.0/0`: a Vercel não tem IPs fixos. Por
    isso use uma senha forte no usuário do banco e, de preferência, um usuário só com o papel
-   `read` no banco `personal_whats`.
+   `read` no banco `personal_whats` (cobre as coleções `messages`, `settings` e
+   `prompt_sessions`).
 4. O cookie de sessão é `Secure`, então o painel só funciona em HTTPS (a Vercel já serve assim) ou
    em `localhost`.
