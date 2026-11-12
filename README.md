@@ -24,8 +24,9 @@ descriptografá-las **no navegador**.
     que ele escreveu, cada ferramenta chamada (clique para ver a entrada) e a saída dela. Só
     mostra: nada do que está ali é executado.
   - Cada sessão é um bloco com título (data de início), status, total de prompts, resumo dos
-    resultados e **quantos dias faltam para apagar** o terminal e os envios pelo frontend dela
-    (10 dias depois do início, `records_expire_at`). A sessão e os prompts não são apagados.
+    resultados e **quantos dias faltam para apagar o terminal** dela (a saída do Claude, 10
+    dias depois do início, `records_expire_at`). O que as pessoas mandaram (prompts, respostas)
+    e os resultados nunca são apagados.
 - **Escrita**: o painel nunca altera nem apaga mensagens nem sessões. A única escrita é a
   inserção de prompts e respostas em `prompt_inputs`, já criptografados no navegador.
 

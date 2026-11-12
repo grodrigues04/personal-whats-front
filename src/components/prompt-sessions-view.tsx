@@ -225,7 +225,7 @@ function SessionCard({ session }: { session: PromptSessionSummary }) {
           {statusSummary.length > 0 && <Chip>{statusSummary.join(" · ")}</Chip>}
           <Chip
             tone={daysLeft === 0 ? "muted" : daysLeft <= RETENTION_WARNING_DAYS ? "warning" : "default"}
-            title={`Dia ${formatDate(session.records_expire_at)}. A sessão e os prompts ficam; somem o terminal e os envios pelo frontend.`}
+            title={`Dia ${formatDate(session.records_expire_at)}. Só a saída do Claude é apagada: os prompts, perguntas, respostas e resultados ficam.`}
           >
             {describeRetention(session.records_expire_at)}
           </Chip>

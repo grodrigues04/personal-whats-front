@@ -73,7 +73,6 @@ export async function POST(request: Request, context: Context): Promise<Response
       promptId: validation.input.promptId,
       username: session.username,
       senderName: session.name,
-      expiresAt: sessionState.recordsExpireAt,
       encryptionVersion: ENCRYPTION_VERSION,
       nonce: validation.input.nonce,
       ciphertext: validation.input.ciphertext,

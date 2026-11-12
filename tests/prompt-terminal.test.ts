@@ -107,8 +107,8 @@ describe("retention", () => {
     expect(countDaysLeft("2026-11-22T12:00:00Z", now)).toBe(10);
     expect(countDaysLeft("2026-11-12T13:00:00Z", now)).toBe(1);
     expect(countDaysLeft("2026-11-11T12:00:00Z", now)).toBe(0);
-    expect(describeRetention("2026-11-15T11:00:00Z", now)).toBe("Terminal e envios apagados em 3 dias");
-    expect(describeRetention("2026-11-12T13:00:00Z", now)).toBe("Terminal e envios apagados em menos de 1 dia");
-    expect(describeRetention("2026-11-01T00:00:00Z", now)).toBe("Terminal e envios já apagados");
+    expect(describeRetention("2026-11-15T11:00:00Z", now)).toBe("Terminal do Claude apagado em 3 dias");
+    expect(describeRetention("2026-11-12T13:00:00Z", now)).toBe("Terminal do Claude apagado em menos de 1 dia");
+    expect(describeRetention("2026-11-01T00:00:00Z", now)).toBe("Terminal do Claude já apagado");
   });
 });

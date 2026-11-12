@@ -173,7 +173,6 @@ export async function getPromptKeyCheck(): Promise<EncryptedData | null> {
 
 export type PromptSessionState = {
   status: PromptSessionStatus;
-  recordsExpireAt: Date;
   prompts: { id: string; status: PromptStatus }[];
 };
 
@@ -190,8 +189,6 @@ export async function getPromptSessionState(sessionId: string): Promise<PromptSe
       {
         projection: {
           status: 1,
-          started_at: 1,
-          records_expire_at: 1,
           "prompts.id": 1,
           "prompts.status": 1,
         },
@@ -202,7 +199,6 @@ export async function getPromptSessionState(sessionId: string): Promise<PromptSe
   }
   return {
     status: document.status,
-    recordsExpireAt: findRecordsExpiration(document),
     prompts: (document.prompts ?? []).map((prompt) => ({ id: prompt.id, status: prompt.status })),
   };
 }
@@ -217,7 +213,6 @@ type PromptInputDocument = {
   status: PromptInputStatus;
   refusal_reason?: string | null;
   created_at: Date;
-  expires_at: Date; // TTL: deleted with the terminal of its session
   processed_at?: Date | null;
   encryption_version: number;
   nonce: Binary;
@@ -237,7 +232,6 @@ export async function insertPromptInput(input: {
   promptId: string | null;
   username: string;
   senderName: string;
-  expiresAt: Date;
   encryptionVersion: number;
   nonce: Buffer;
   ciphertext: Buffer;
@@ -252,7 +246,6 @@ export async function insertPromptInput(input: {
     status: "pending",
     refusal_reason: null,
     created_at: new Date(),
-    expires_at: input.expiresAt,
     processed_at: null,
     encryption_version: input.encryptionVersion,
     nonce: new Binary(input.nonce),
