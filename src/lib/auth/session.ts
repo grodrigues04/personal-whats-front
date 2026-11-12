@@ -1,5 +1,7 @@
 import { jwtVerify, SignJWT } from "jose";
 
+import { ROLES, type Role, type User } from "./users";
+
 /**
  * Session token: JWT HS256 signed with AUTH_SECRET. Kept free of Next.js imports so it runs in the
  * proxy, in route handlers and in the tests.
@@ -12,6 +14,8 @@ const MINIMUM_SECRET_LENGTH = 32;
 
 export type Session = {
   username: string;
+  name: string;
+  role: Role;
   expiresAt: Date;
 };
 
@@ -23,21 +27,24 @@ function encodeSecret(secret: string | undefined): Uint8Array {
 }
 
 export async function signSession(
-  username: string,
+  user: Pick<User, "username" | "name" | "role">,
   secret: string | undefined,
   now: Date = new Date(),
 ): Promise<string> {
   const issuedAt = Math.floor(now.getTime() / 1000);
-  return new SignJWT({})
+  return new SignJWT({ name: user.name, role: user.role })
     .setProtectedHeader({ alg: ALGORITHM })
-    .setSubject(username)
+    .setSubject(user.username)
     .setIssuer(ISSUER)
     .setIssuedAt(issuedAt)
     .setExpirationTime(issuedAt + SESSION_DURATION_SECONDS)
     .sign(encodeSecret(secret));
 }
 
-/** Returns null for a missing, expired, tampered or otherwise invalid token. */
+/**
+ * Returns null for a missing, expired, tampered or otherwise invalid token. Tokens from before the
+ * roles existed have no role and are invalid: the user logs in again.
+ */
 export async function verifySession(
   token: string | undefined,
   secret: string | undefined,
@@ -52,10 +59,21 @@ export async function verifySession(
       issuer: ISSUER,
       currentDate: now,
     });
-    if (!payload.sub || !payload.exp) {
+    const { name, role } = payload;
+    if (
+      !payload.sub ||
+      !payload.exp ||
+      typeof name !== "string" ||
+      !ROLES.includes(role as Role)
+    ) {
       return null;
     }
-    return { username: payload.sub, expiresAt: new Date(payload.exp * 1000) };
+    return {
+      username: payload.sub,
+      name,
+      role: role as Role,
+      expiresAt: new Date(payload.exp * 1000),
+    };
   } catch {
     return null;
   }

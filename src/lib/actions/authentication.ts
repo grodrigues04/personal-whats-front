@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { verifyCredentials } from "@/lib/auth/credentials";
 import { endSession, startSession } from "@/lib/auth/server";
+import { loadUsers, type User } from "@/lib/auth/users";
 
 export type LoginState = { error: string | null };
 
@@ -16,26 +17,21 @@ export async function login(_previousState: LoginState, formData: FormData): Pro
     return { error: "Informe o usuário e a senha" };
   }
 
-  let isValid: boolean;
+  let user: User | null;
   try {
-    isValid = await verifyCredentials(
-      username,
-      password,
-      process.env.AUTH_USERNAME,
-      process.env.AUTH_PASSWORD_HASH,
-    );
+    user = await verifyCredentials(username, password, loadUsers(process.env));
   } catch (error) {
     console.error("Login is not configured", error);
     return { error: "O login não está configurado no servidor" };
   }
-  if (!isValid) {
+  if (!user) {
     // Slows down password guessing
     await new Promise((resolve) => setTimeout(resolve, FAILED_LOGIN_DELAY_MILLISECONDS));
     return { error: "Usuário ou senha incorretos" };
   }
 
-  await startSession(username);
-  redirect("/");
+  await startSession(user);
+  redirect(user.role === "admin" ? "/" : "/prompts");
 }
 
 export async function logout(): Promise<void> {

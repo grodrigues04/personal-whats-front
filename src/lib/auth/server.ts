@@ -11,6 +11,7 @@ import {
   verifySession,
   type Session,
 } from "./session";
+import type { User } from "./users";
 
 export async function getSession(): Promise<Session | null> {
   const cookieStore = await cookies();
@@ -28,8 +29,17 @@ export async function requireSession(): Promise<Session> {
   return session;
 }
 
-export async function startSession(username: string): Promise<void> {
-  const token = await signSession(username, process.env.AUTH_SECRET);
+/** For the pages of the admin only (WhatsApp messages): the others go to the Prompts tab. */
+export async function requireAdmin(): Promise<Session> {
+  const session = await requireSession();
+  if (session.role !== "admin") {
+    redirect("/prompts");
+  }
+  return session;
+}
+
+export async function startSession(user: User): Promise<void> {
+  const token = await signSession(user, process.env.AUTH_SECRET);
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,

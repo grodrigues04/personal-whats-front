@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { fetchJson } from "@/lib/api-client";
 import { formatDate } from "@/lib/format";
@@ -10,11 +10,17 @@ import type {
   PromptSummary,
 } from "@/lib/prompt-sessions/statuses";
 
+import { ActiveSessionPanel } from "./active-session-panel";
 import { DecryptedPrompt } from "./decrypted-prompt";
 import { useDecryption, type PromptDecryptionResult } from "./decryption-provider";
 import { PromptSessionStatusBadge, PromptStatusBadge } from "./prompt-status-badges";
+import { PromptTerminal } from "./prompt-terminal";
 
 const REFRESH_INTERVAL_MILLISECONDS = 15_000;
+// While a session runs, its queue and the questions of Claude need to show up fast
+const ACTIVE_REFRESH_INTERVAL_MILLISECONDS = 4_000;
+const LIVE_SESSION_STATUSES = ["active", "finishing"];
+const LIVE_PROMPT_STATUSES = ["reviewing", "running", "waiting_answers"];
 
 export function PromptSessionsView() {
   const [page, setPage] = useState(1);
@@ -24,6 +30,25 @@ export function PromptSessionsView() {
   const [isLoading, setIsLoading] = useState(true);
 
   const [refreshCount, setRefreshCount] = useState(0);
+  const { isUnlocked, decryptSession } = useDecryption();
+  const isPromptsUnlocked = isUnlocked("prompts");
+  const activeSession =
+    sessionPage?.sessions.find((session) => LIVE_SESSION_STATUSES.includes(session.status)) ?? null;
+  const refreshInterval = activeSession
+    ? ACTIVE_REFRESH_INTERVAL_MILLISECONDS
+    : REFRESH_INTERVAL_MILLISECONDS;
+  const refresh = useCallback(() => setRefreshCount((count) => count + 1), []);
+
+  // The session running now is decrypted on every refresh: its queue and questions stay current
+  const activeSessionId = activeSession?.id ?? null;
+  const activeSessionVersion = activeSession
+    ? activeSession.prompts.map((prompt) => `${prompt.id}:${prompt.status}`).join(",")
+    : "";
+  useEffect(() => {
+    if (activeSessionId && isPromptsUnlocked) {
+      decryptSession(activeSessionId, { silent: true });
+    }
+  }, [activeSessionId, activeSessionVersion, isPromptsUnlocked, decryptSession, lastUpdate]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -51,12 +76,12 @@ export function PromptSessionsView() {
       if (document.visibilityState === "visible") {
         load();
       }
-    }, REFRESH_INTERVAL_MILLISECONDS);
+    }, refreshInterval);
     return () => {
       controller.abort();
       clearInterval(interval);
     };
-  }, [page, refreshCount]);
+  }, [page, refreshCount, refreshInterval]);
 
   const totalPages = sessionPage
     ? Math.max(1, Math.ceil(sessionPage.total / sessionPage.page_size))
@@ -68,18 +93,21 @@ export function PromptSessionsView() {
         <div>
           <h1 className="text-2xl font-semibold">Prompts</h1>
           <p className="text-xs text-zinc-500">
-            {sessionPage ? `${sessionPage.total} sessões` : "…"} · atualiza a cada 15s
+            {sessionPage ? `${sessionPage.total} sessões` : "…"} · atualiza a cada{" "}
+            {refreshInterval / 1000}s
             {lastUpdate && ` · última atualização ${formatDate(lastUpdate)}`}
           </p>
         </div>
         <button
           type="button"
           className="button-secondary w-full sm:w-auto"
-          onClick={() => setRefreshCount((count) => count + 1)}
+          onClick={refresh}
         >
           Atualizar
         </button>
       </div>
+
+      {activeSession && <ActiveSessionPanel session={activeSession} onSent={refresh} />}
 
       {error && (
         <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
@@ -129,7 +157,13 @@ export function PromptSessionsView() {
 }
 
 function SessionCard({ session }: { session: PromptSessionSummary }) {
-  const { isUnlocked, decryptedSessions, decryptSession, hideSession } = useDecryption();
+  const {
+    isUnlocked: isScopeUnlocked,
+    decryptedSessions,
+    decryptSession,
+    hideSession,
+  } = useDecryption();
+  const isUnlocked = isScopeUnlocked("prompts");
   const decryption = decryptedSessions[session.id];
 
   return (
@@ -153,7 +187,7 @@ function SessionCard({ session }: { session: PromptSessionSummary }) {
             type="button"
             className="button-secondary w-full sm:w-auto"
             disabled={!isUnlocked || decryption?.state === "loading" || session.prompts.length === 0}
-            title={isUnlocked ? undefined : "Informe a senha de criptografia no topo da página"}
+            title={isUnlocked ? undefined : "Informe a senha dos prompts no topo da página"}
             onClick={() => decryptSession(session.id)}
           >
             {decryption?.state === "loading" ? "Descriptografando…" : "Descriptografar"}
@@ -208,6 +242,7 @@ function SessionCard({ session }: { session: PromptSessionSummary }) {
           {session.prompts.map((prompt) => (
             <PromptItem
               key={prompt.id}
+              sessionId={session.id}
               prompt={prompt}
               decryption={
                 decryption?.state === "decrypted" ? decryption.prompts[prompt.id] : undefined
@@ -221,17 +256,35 @@ function SessionCard({ session }: { session: PromptSessionSummary }) {
 }
 
 function PromptItem({
+  sessionId,
   prompt,
   decryption,
 }: {
+  sessionId: string;
   prompt: PromptSummary;
   decryption: PromptDecryptionResult | undefined;
 }) {
+  const { isUnlocked } = useDecryption();
+  const [isTerminalOpen, setIsTerminalOpen] = useState(false);
   return (
     <li className="flex flex-col gap-2 rounded-md border border-zinc-200 px-3 py-2 dark:border-zinc-800">
       <div className="flex flex-wrap items-center gap-2">
         <PromptStatusBadge status={prompt.status} />
+        {prompt.source === "frontend" && (
+          <span className="text-xs text-zinc-500">pelo frontend</span>
+        )}
         <span className="break-all font-mono text-xs text-zinc-400">{prompt.id}</span>
+        {prompt.status !== "queued" && (
+          <button
+            type="button"
+            className="button-secondary ml-auto font-mono text-xs"
+            disabled={!isUnlocked("prompts")}
+            title={isUnlocked("prompts") ? undefined : "Informe a senha dos prompts no topo da página"}
+            onClick={() => setIsTerminalOpen((isOpen) => !isOpen)}
+          >
+            {isTerminalOpen ? "Fechar terminal" : ">_ Terminal"}
+          </button>
+        )}
       </div>
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-3">
         <DateField label="Recebido" value={prompt.received_at} />
@@ -244,6 +297,13 @@ function PromptItem({
         </p>
       )}
       {decryption?.state === "decrypted" && <DecryptedPrompt content={decryption.content} />}
+      {isTerminalOpen && (
+        <PromptTerminal
+          sessionId={sessionId}
+          promptId={prompt.id}
+          isLive={LIVE_PROMPT_STATUSES.includes(prompt.status)}
+        />
+      )}
     </li>
   );
 }

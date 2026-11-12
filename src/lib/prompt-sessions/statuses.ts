@@ -42,11 +42,23 @@ export const PROMPT_STATUS_LABELS: Record<PromptStatus, string> = {
 };
 
 export const SESSION_ID_PATTERN = /^[0-9a-f]{24}$/i;
+export const PROMPT_ID_PATTERN = /^[0-9a-f]{32}$/;
+
+/** Prompts in these statuses are the queue: the one running first, then the waiting ones. */
+export const RUNNING_PROMPT_STATUSES: readonly PromptStatus[] = [
+  "reviewing",
+  "running",
+  "waiting_answers",
+];
+
+/** Where a prompt came from: the group (/prompt) or this frontend. */
+export type PromptSource = "whatsapp" | "frontend";
 
 /** Public part of a prompt, as returned by the list endpoint (no nonce or ciphertext). */
 export type PromptSummary = {
   id: string;
   status: PromptStatus;
+  source: PromptSource;
   received_at: string;
   started_at: string | null;
   finished_at: string | null;
@@ -73,4 +85,35 @@ export type PromptSessionPage = {
   total: number;
   page: number;
   page_size: number;
+};
+
+/** Prompts and answers sent through this frontend (prompt_inputs), read by prompt_automator. */
+export const PROMPT_INPUT_KINDS = ["prompt", "answer"] as const;
+
+export type PromptInputKind = (typeof PROMPT_INPUT_KINDS)[number];
+
+export type PromptInputStatus = "pending" | "accepted" | "refused";
+
+/** Public part of an input: never the username (a phone number) nor the content. */
+export type PromptInputSummary = {
+  id: string;
+  kind: PromptInputKind;
+  prompt_id: string | null;
+  sender_name: string;
+  status: PromptInputStatus;
+  refusal_reason: string | null;
+  created_at: string;
+  is_mine: boolean;
+};
+
+/** Steps of a prompt that run Claude, in the order they happen. */
+export type TerminalStep = "review" | "implementation" | "answers";
+
+export type EncryptedTerminalChunk = {
+  sequence: number;
+  step: TerminalStep;
+  created_at: string;
+  encryption_version: number;
+  nonce: string;
+  ciphertext: string;
 };

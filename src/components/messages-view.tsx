@@ -179,7 +179,9 @@ export function MessagesView({ view, title }: MessagesViewProps) {
 }
 
 function MessageCard({ message }: { message: MessageSummary }) {
-  const { isUnlocked, decryptedMessages, decryptMessage, hideMessage } = useDecryption();
+  const { isUnlocked: isScopeUnlocked, decryptedMessages, decryptMessage, hideMessage } =
+    useDecryption();
+  const isUnlocked = isScopeUnlocked("messages");
   const decryption = decryptedMessages[message.id];
 
   return (

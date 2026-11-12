@@ -3,17 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { canAccessPath, type Role } from "@/lib/auth/users";
+
 const LINKS = [
   { href: "/", label: "Fila" },
   { href: "/historico", label: "Histórico" },
   { href: "/prompts", label: "Prompts" },
 ];
 
-export function NavigationLinks() {
+export function NavigationLinks({ role }: { role: Role }) {
   const pathname = usePathname();
   return (
     <nav className="flex gap-1">
-      {LINKS.map((link) => (
+      {LINKS.filter((link) => canAccessPath(role, link.href)).map((link) => (
         <Link
           key={link.href}
           href={link.href}

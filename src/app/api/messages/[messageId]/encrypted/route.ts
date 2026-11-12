@@ -6,7 +6,7 @@ export async function GET(
   _request: Request,
   context: RouteContext<"/api/messages/[messageId]/encrypted">,
 ): Promise<Response> {
-  const unauthorizedResponse = await unauthorizedResponseIfNoSession();
+  const unauthorizedResponse = await unauthorizedResponseIfNoSession({ adminOnly: true });
   if (unauthorizedResponse) {
     return unauthorizedResponse;
   }

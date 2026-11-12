@@ -66,16 +66,22 @@ describe("prompt content", () => {
       sender_name: "Matheus",
       text: "Adicione um botão de curtir nos comentários",
       result: "Botão de curtir adicionado",
+      questions: ["Em todos os comentários?"],
+      answers: "sim",
+      answered_by: "Arthur",
     };
     const encryptedData = await encrypt(key, JSON.stringify(content));
     expect(await decryptPromptContent(key, encryptedData)).toEqual(content);
   });
 
-  it("accepts a missing sender and result", () => {
+  it("accepts a missing sender, result and questions (prompts saved before them)", () => {
     expect(parsePromptContent(encode(JSON.stringify({ sender_name: null, text: "Oi" })))).toEqual({
       sender_name: null,
       text: "Oi",
       result: null,
+      questions: [],
+      answers: null,
+      answered_by: null,
     });
   });
 

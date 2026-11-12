@@ -10,6 +10,26 @@ export function DecryptedPrompt({ content }: { content: DecryptedPromptContent }
         <span className="font-medium">{content.sender_name ?? "desconhecido"}</span>
       </div>
       <p className="whitespace-pre-wrap break-words">{content.text}</p>
+      {content.questions.length > 0 && (
+        <div>
+          <span className="text-xs text-zinc-500">Perguntas do Claude</span>
+          <ol className="list-decimal pl-5">
+            {content.questions.map((question, index) => (
+              <li key={index} className="whitespace-pre-wrap break-words">
+                {question}
+              </li>
+            ))}
+          </ol>
+          {content.answers !== null && (
+            <>
+              <span className="text-xs text-zinc-500">
+                Respostas ({content.answered_by ? `${content.answered_by}, pelo frontend` : "grupo"})
+              </span>
+              <p className="whitespace-pre-wrap break-words">{content.answers}</p>
+            </>
+          )}
+        </div>
+      )}
       <div>
         <span className="text-xs text-zinc-500">Resultado</span>
         {content.result ? (

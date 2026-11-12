@@ -12,7 +12,7 @@ export function LoginForm() {
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <label className="flex flex-col gap-1 text-sm">
-        Usuário
+        Usuário ou telefone
         <input
           name="username"
           autoComplete="username"

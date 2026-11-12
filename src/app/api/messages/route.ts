@@ -12,7 +12,7 @@ import {
 const MAXIMUM_PAGE = 10_000;
 
 export async function GET(request: NextRequest): Promise<Response> {
-  const unauthorizedResponse = await unauthorizedResponseIfNoSession();
+  const unauthorizedResponse = await unauthorizedResponseIfNoSession({ adminOnly: true });
   if (unauthorizedResponse) {
     return unauthorizedResponse;
   }

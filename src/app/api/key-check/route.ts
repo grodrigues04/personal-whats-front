@@ -3,7 +3,7 @@ import { getKeyCheck } from "@/lib/messages/repository";
 
 /** Key check written by the validator: the browser decrypts it to confirm the typed password. */
 export async function GET(): Promise<Response> {
-  const unauthorizedResponse = await unauthorizedResponseIfNoSession();
+  const unauthorizedResponse = await unauthorizedResponseIfNoSession({ adminOnly: true });
   if (unauthorizedResponse) {
     return unauthorizedResponse;
   }

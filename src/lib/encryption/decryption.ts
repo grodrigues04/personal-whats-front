@@ -75,9 +75,14 @@ export function bytesToBase64(bytes: Uint8Array): string {
 
 /**
  * PBKDF2-HMAC-SHA256 with the fixed salt. The key is not extractable by default, so it can be kept
- * in memory without exposing its bytes; `extractable` exists only for the test vectors.
+ * in memory without exposing its bytes; `extractable` exists only for the test vectors. The key of
+ * the prompts also encrypts (prompts and answers sent through the frontend).
  */
-export async function deriveKey(password: string, extractable = false): Promise<CryptoKey> {
+export async function deriveKey(
+  password: string,
+  extractable = false,
+  usages: KeyUsage[] = ["decrypt"],
+): Promise<CryptoKey> {
   if (!password) {
     throw new Error("A senha de criptografia é obrigatória");
   }
@@ -99,8 +104,19 @@ export async function deriveKey(password: string, extractable = false): Promise<
     passwordKey,
     { name: "AES-GCM", length: KEY_SIZE_BITS },
     extractable,
-    ["decrypt"],
+    usages,
   );
+}
+
+/** Random nonce for every call, as in interface_personal_whats/crypto.py. */
+export async function encrypt(key: CryptoKey, plaintext: Uint8Array<ArrayBuffer>): Promise<EncryptedData> {
+  const nonce = crypto.getRandomValues(new Uint8Array(NONCE_SIZE));
+  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce }, key, plaintext);
+  return { nonceBase64: bytesToBase64(nonce), ciphertextBase64: bytesToBase64(new Uint8Array(ciphertext)) };
+}
+
+export async function encryptJson(key: CryptoKey, content: unknown): Promise<EncryptedData> {
+  return encrypt(key, new TextEncoder().encode(JSON.stringify(content)));
 }
 
 /** Raises InvalidPasswordError when the key is wrong or the data was tampered with. */

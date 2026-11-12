@@ -8,6 +8,7 @@ import {
   decrypt,
   decryptPayload,
   deriveKey,
+  encryptJson,
   InvalidPasswordError,
   KEY_CHECK_PLAINTEXT,
   KEY_DERIVATION_ITERATIONS,
@@ -92,5 +93,29 @@ describe("encryption v1 vectors", () => {
     await expect(
       decrypt(key, { nonceBase64: message.nonce_base64, ciphertextBase64: bytesToBase64(ciphertext) }),
     ).rejects.toBeInstanceOf(InvalidPasswordError);
+  });
+});
+
+describe("encryption of what the frontend sends", () => {
+  it("is read back with the raw key that prompt_automator derives", async () => {
+    const key = await deriveKey(vectors.password, false, ["encrypt", "decrypt"]);
+    const encrypted = await encryptJson(key, { text: "botão azul ção" });
+
+    const rawKey = await crypto.subtle.importKey(
+      "raw",
+      Uint8Array.from(atob(vectors.key_base64), (character) => character.charCodeAt(0)),
+      "AES-GCM",
+      false,
+      ["decrypt"],
+    );
+    const plaintext = await decrypt(rawKey, encrypted);
+    expect(JSON.parse(new TextDecoder().decode(plaintext))).toEqual({ text: "botão azul ção" });
+  });
+
+  it("uses a new nonce every time", async () => {
+    const key = await deriveKey(vectors.password, false, ["encrypt", "decrypt"]);
+    const first = await encryptJson(key, { text: "a" });
+    const second = await encryptJson(key, { text: "a" });
+    expect(first.nonceBase64).not.toBe(second.nonceBase64);
   });
 });

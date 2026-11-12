@@ -2,7 +2,6 @@ import { Suspense } from "react";
 
 import { DecryptionProvider } from "@/components/decryption-provider";
 import { NavigationLinks } from "@/components/navigation-links";
-import { UnlockPanel } from "@/components/unlock-panel";
 import { logout } from "@/lib/actions/authentication";
 import { requireSession } from "@/lib/auth/server";
 
@@ -12,6 +11,17 @@ async function SessionGate({ children }: { children: React.ReactNode }) {
   return children;
 }
 
+/** The users of the Prompts tab only get its link. */
+async function Navigation() {
+  const session = await requireSession();
+  return (
+    <div className="flex items-center gap-3">
+      <NavigationLinks role={session.role} />
+      <span className="hidden text-xs text-zinc-500 sm:inline">{session.name}</span>
+    </div>
+  );
+}
+
 export default function DashboardLayout({ children }: LayoutProps<"/">) {
   return (
     <DecryptionProvider>
@@ -19,7 +29,9 @@ export default function DashboardLayout({ children }: LayoutProps<"/">) {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-4 sm:gap-6">
             <span className="font-semibold">Personal Whats</span>
-            <NavigationLinks />
+            <Suspense fallback={null}>
+              <Navigation />
+            </Suspense>
           </div>
           <form action={logout}>
             <button type="submit" className="button-secondary">
@@ -30,10 +42,7 @@ export default function DashboardLayout({ children }: LayoutProps<"/">) {
       </header>
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 px-3 py-4 sm:px-4 sm:py-6">
         <Suspense fallback={<p className="text-sm text-zinc-500">Carregando…</p>}>
-          <SessionGate>
-            <UnlockPanel />
-            {children}
-          </SessionGate>
+          <SessionGate>{children}</SessionGate>
         </Suspense>
       </main>
     </DecryptionProvider>

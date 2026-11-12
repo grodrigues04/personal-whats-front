@@ -4,10 +4,16 @@ import { useRef, useState } from "react";
 
 import { InvalidPasswordError } from "@/lib/encryption/decryption";
 
-import { describeError, useDecryption } from "./decryption-provider";
+import { describeError, useDecryption, type KeyScope } from "./decryption-provider";
 
-export function UnlockPanel() {
-  const { isUnlocked, unlock, lock } = useDecryption();
+const LABELS: Record<KeyScope, string> = {
+  messages: "Senha de criptografia",
+  prompts: "Senha dos prompts",
+};
+
+export function UnlockPanel({ scope }: { scope: KeyScope }) {
+  const { isUnlocked: isScopeUnlocked, unlock, lock } = useDecryption();
+  const isUnlocked = isScopeUnlocked(scope);
   const passwordInput = useRef<HTMLInputElement>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,11 +28,11 @@ export function UnlockPanel() {
     setIsChecking(true);
     setError(null);
     try {
-      await unlock(password);
+      await unlock(scope, password);
     } catch (unlockError) {
       setError(
         unlockError instanceof InvalidPasswordError
-          ? "Senha de criptografia incorreta"
+          ? `${LABELS[scope]} incorreta`
           : describeError(unlockError),
       );
     } finally {
@@ -42,7 +48,7 @@ export function UnlockPanel() {
     return (
       <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm dark:border-emerald-900 dark:bg-emerald-950/40">
         <span>Descriptografia liberada nesta aba. A chave fica só na memória do navegador.</span>
-        <button type="button" onClick={lock} className="button-secondary">
+        <button type="button" onClick={() => lock(scope)} className="button-secondary">
           Bloquear
         </button>
       </section>
@@ -53,7 +59,7 @@ export function UnlockPanel() {
     <section className="rounded-lg border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
       <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
         <label className="flex w-full flex-col gap-1 text-sm sm:w-auto sm:min-w-64 sm:flex-1">
-          Senha de criptografia
+          {LABELS[scope]}
           <input
             ref={passwordInput}
             type="password"
