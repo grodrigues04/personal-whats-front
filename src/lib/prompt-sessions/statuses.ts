@@ -108,7 +108,7 @@ export type PromptInputSummary = {
 };
 
 /** Steps of a prompt that run Claude, in the order they happen. */
-export type TerminalStep = "review" | "implementation" | "answers";
+export type TerminalStep = "review" | "implementation" | "answers" | "conflict";
 
 export type EncryptedTerminalChunk = {
   sequence: number;

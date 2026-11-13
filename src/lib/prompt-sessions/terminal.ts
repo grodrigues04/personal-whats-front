@@ -19,6 +19,7 @@ export const STEP_LABELS: Record<TerminalStep, string> = {
   review: "Revisão de segurança",
   implementation: "Implementação",
   answers: "Implementação com as respostas",
+  conflict: "Resolução de conflito com a main",
 };
 
 const MAXIMUM_SUMMARY_LENGTH = 160;
